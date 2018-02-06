@@ -69,6 +69,12 @@ def pcl_callback(pcl_msg):
     # TODO: PassThrough Filter
 
     # TODO: RANSAC Plane Segmentation
+    seg = cloud.make_segmenter()
+    seg.set_model_type(pcl.SACMODEL_PLANE)
+    seg.set_method_type(pcl.SAC_RANSAC)
+    seg.set_distance_threshold(0.01)
+    inliers, coefficients = seg.segment()
+    cloud = cloud.extract(inliers, negative=True)
 
     # TODO: Extract inliers and outliers
 
