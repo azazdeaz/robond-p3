@@ -52,8 +52,17 @@ def pcl_callback(pcl_msg):
 # Exercise-2 TODOs:
 
     # TODO: Convert ROS msg to PCL data
-    
+    pcl_msg = ros_to_pcl(pcl_msg)
+    color = rgb_to_float(random_color_gen())
+    point_list = [[p[0],p[1],p[2],color] for p in pcl_msg]
+    cloud = pcl.PointCloud_PointXYZRGB()
+    cloud.from_list(point_list)
+
     # TODO: Statistical Outlier Filtering
+    outlier_filter = cloud.make_statistical_outlier_filter()
+    outlier_filter.set_mean_k(50)
+    outlier_filter.set_std_dev_mul_thresh(0.1)
+    cloud = outlier_filter.filter()
 
     # TODO: Voxel Grid Downsampling
 
@@ -70,6 +79,8 @@ def pcl_callback(pcl_msg):
     # TODO: Convert PCL data to ROS messages
 
     # TODO: Publish ROS messages
+    pcl_msg = pcl_to_ros(cloud)
+    pcl_objects_pub.publish(pcl_msg)
 
 # Exercise-3 TODOs:
 
@@ -90,10 +101,10 @@ def pcl_callback(pcl_msg):
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
     # before calling pr2_mover()
-    try:
-        pr2_mover(detected_objects_list)
-    except rospy.ROSInterruptException:
-        pass
+    # try:
+    #     pr2_mover(detected_objects_list)
+    # except rospy.ROSInterruptException:
+    #     pass
 
 # function to load parameters and request PickPlace service
 def pr2_mover(object_list):
@@ -137,10 +148,13 @@ def pr2_mover(object_list):
 if __name__ == '__main__':
 
     # TODO: ROS node initialization
+    rospy.init_node('robot')
 
     # TODO: Create Subscribers
+    plc_sub = rospy.Subscriber('pr2/world/points', pc2.PointCloud2, pcl_callback, queue_size=1)
 
     # TODO: Create Publishers
+    pcl_objects_pub = rospy.Publisher('pcl_objects_x', pc2.PointCloud2, queue_size=1)
 
     # TODO: Load Model From disk
 
@@ -148,3 +162,5 @@ if __name__ == '__main__':
     get_color_list.color_list = []
 
     # TODO: Spin while node is not shutdown
+    while not rospy.is_shutdown():
+        rospy.spin()
