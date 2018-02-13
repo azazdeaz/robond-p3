@@ -52,11 +52,7 @@ def pcl_callback(pcl_msg):
 # Exercise-2 TODOs:
 
     # TODO: Convert ROS msg to PCL data
-    pcl_msg = ros_to_pcl(pcl_msg)
-    color = rgb_to_float(random_color_gen())
-    point_list = [[p[0],p[1],p[2],color] for p in pcl_msg]
-    cloud = pcl.PointCloud_PointXYZRGB()
-    cloud.from_list(point_list)
+    cloud = ros_to_pcl(pcl_msg)
 
     # TODO: Statistical Outlier Filtering
     outlier_filter = cloud.make_statistical_outlier_filter()
@@ -144,21 +140,28 @@ def pcl_callback(pcl_msg):
 
     for index, pts_list in enumerate(cluster_indices):
         # Grab the points for the cluster from the extracted outliers (cloud_objects)
+        # print('cloud l', len(pts_list))
         pcl_cluster = cloud.extract(pts_list)
+        pcl_object_pubs[index].publish(pcl_to_ros(pcl_cluster))
+        print('pcl_cluster', pcl_cluster)
         # TODO: convert the cluster from pcl to ROS using helper function
         pcl_msg = pcl_to_ros(pcl_cluster)
         # Extract histogram features
         # TODO: complete this step just as is covered in capture_features.py
         chists = compute_color_histograms(pcl_msg, using_hsv=True)
+        # print('chists', chists)
         normals = get_normals(pcl_msg)
         nhists = compute_normal_histograms(normals)
+        # print('nhists', nhists)
         feature = np.concatenate((chists, nhists))
+        # print('feature', feature)
 
         # Make the prediction, retrieve the label for the result
         # and add it to detected_objects_labels list
+        # print('feature.reshape(1,-1)', feature.reshape(1,-1))
         prediction = clf.predict(scaler.transform(feature.reshape(1,-1)))
         object_list_param = rospy.get_param('/object_list')
-        print('prediction', prediction)
+        print('prediction', encoder.inverse_transform(prediction))
         print('object_list_param', object_list_param)
         label = encoder.inverse_transform(prediction)[0]
         detected_objects_labels.append(label)
@@ -239,6 +242,15 @@ if __name__ == '__main__':
     pcl_objects_pub = rospy.Publisher('pcl_objects_color_groups', pc2.PointCloud2, queue_size=1)
     detected_objects_pub = rospy.Publisher('detected_objects', DetectedObjectsArray, queue_size=1)
     object_markers_pub = rospy.Publisher('object_markers', Marker, queue_size=1)
+    pcl_object_pubs = [
+        rospy.Publisher('pcl_object_1', pc2.PointCloud2, queue_size=1),
+        rospy.Publisher('pcl_object_2', pc2.PointCloud2, queue_size=1),
+        rospy.Publisher('pcl_object_3', pc2.PointCloud2, queue_size=1),
+        rospy.Publisher('pcl_object_4', pc2.PointCloud2, queue_size=1),
+        rospy.Publisher('pcl_object_5', pc2.PointCloud2, queue_size=1),
+        rospy.Publisher('pcl_object_6', pc2.PointCloud2, queue_size=1),
+        rospy.Publisher('pcl_object_7', pc2.PointCloud2, queue_size=1),
+    ]
 
     # TODO: Load Model From disk
     model = pickle.load(open('model.sav', 'rb'))
