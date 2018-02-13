@@ -121,19 +121,6 @@ def pcl_callback(pcl_msg):
 
 # Exercise-3 TODOs:
 
-    # Classify the clusters! (loop through each detected cluster one at a time)
-
-
-        # Grab the points for the cluster
-
-        # Compute the associated feature vector
-
-        # Make the prediction
-
-        # Publish a label into RViz
-
-        # Add the detected object to the list of detected objects.
-
     # Publish the list of detected objects
     detected_objects_labels = []
     detected_objects = []
@@ -149,20 +136,14 @@ def pcl_callback(pcl_msg):
         # Extract histogram features
         # TODO: complete this step just as is covered in capture_features.py
         chists = compute_color_histograms(pcl_msg, using_hsv=True)
-        # print('chists', chists)
         normals = get_normals(pcl_msg)
         nhists = compute_normal_histograms(normals)
-        # print('nhists', nhists)
         feature = np.concatenate((chists, nhists))
-        # print('feature', feature)
 
         # Make the prediction, retrieve the label for the result
         # and add it to detected_objects_labels list
         # print('feature.reshape(1,-1)', feature.reshape(1,-1))
         prediction = clf.predict(scaler.transform(feature.reshape(1,-1)))
-        object_list_param = rospy.get_param('/object_list')
-        print('prediction', encoder.inverse_transform(prediction))
-        print('object_list_param', object_list_param)
         label = encoder.inverse_transform(prediction)[0]
         detected_objects_labels.append(label)
 
@@ -182,6 +163,33 @@ def pcl_callback(pcl_msg):
     # Publish the list of detected objects
     # This is the output you'll need to complete the upcoming project!
     detected_objects_pub.publish(detected_objects)
+
+    object_list_param = rospy.get_param('/object_list')
+    labels = []
+    centroids = []
+
+    for do in detected_objects:
+        labels.append(do.label)
+        points_arr = ros_to_plc(do.cloud).to_array()
+        centroids.append(np.asscalar(np.mean(points_arr, axis=0)[:3]))
+
+    for i, param in enumerate(object_list_param):
+        test_scene_num = Int32()
+        test_scene_num.data = 3
+        object_name = String()
+        object_name.data = param['name']
+        arm_name = String()
+        arm_name.data = param['group']
+        pick_pose = Pose()
+
+        detected_index = detected_objects_labels.index(param['name'])
+        if detected_index >= 0:
+            centroid = centroids[detected_index]
+            pick_pose.position.x = centroid[0]
+            pick_pose.position.y = centroid[2]
+            pick_pose.position.z = centroid[3]
+
+
 
     # Suggested location for where to invoke your pr2_mover() function within pcl_callback()
     # Could add some logic to determine whether or not your object detections are robust
