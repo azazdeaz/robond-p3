@@ -24,6 +24,8 @@ from pr2_robot.srv import *
 from rospy_message_converter import message_converter
 import yaml
 
+SCENE_NUM = 2
+
 
 # Helper function to get surface normals
 def get_normals(cloud):
@@ -130,7 +132,6 @@ def pcl_callback(pcl_msg):
         # print('cloud l', len(pts_list))
         pcl_cluster = cloud.extract(pts_list)
         pcl_object_pubs[index].publish(pcl_to_ros(pcl_cluster))
-        print('pcl_cluster', pcl_cluster)
         # TODO: convert the cluster from pcl to ROS using helper function
         pcl_msg = pcl_to_ros(pcl_cluster)
         # Extract histogram features
@@ -165,29 +166,51 @@ def pcl_callback(pcl_msg):
     detected_objects_pub.publish(detected_objects)
 
     object_list_param = rospy.get_param('/object_list')
+    dropbox_param = rospy.get_param('/dropbox')
+    dropbox = dict(zip([box['group'] for box in dropbox_param], dropbox_param))
+    print('dropbox', dropbox    )
+
     labels = []
     centroids = []
+    yaml_list = []
 
     for do in detected_objects:
         labels.append(do.label)
-        points_arr = ros_to_plc(do.cloud).to_array()
-        centroids.append(np.asscalar(np.mean(points_arr, axis=0)[:3]))
+        points_arr = ros_to_pcl(do.cloud).to_array()
+        centroids.append(np.mean(points_arr, axis=0)[:3].tolist())
+    print('object_list_param', object_list_param)
 
     for i, param in enumerate(object_list_param):
         test_scene_num = Int32()
-        test_scene_num.data = 3
+        test_scene_num.data = SCENE_NUM
         object_name = String()
         object_name.data = param['name']
         arm_name = String()
         arm_name.data = param['group']
         pick_pose = Pose()
+        place_pose = Pose()
 
-        detected_index = detected_objects_labels.index(param['name'])
-        if detected_index >= 0:
+        if param['name'] in detected_objects_labels:
+            detected_index = detected_objects_labels.index(param['name'])
+            print('detected', i, detected_index, param['name'])
             centroid = centroids[detected_index]
             pick_pose.position.x = centroid[0]
-            pick_pose.position.y = centroid[2]
-            pick_pose.position.z = centroid[3]
+            pick_pose.position.y = centroid[1]
+            pick_pose.position.z = centroid[2]
+            place_pose.position.x = dropbox[param['group']]['position'][0]
+            place_pose.position.y = dropbox[param['group']]['position'][1]
+            place_pose.position.z = dropbox[param['group']]['position'][2]
+
+            yaml = make_yaml_dict(test_scene_num=test_scene_num,
+                                  object_name=object_name,
+                                  arm_name=arm_name,
+                                  pick_pose=pick_pose,
+                                  place_pose=place_pose)
+            yaml_list.append(yaml)
+        else:
+            print('Cant find "{}"'.format(param["name"]))
+    send_to_yaml('output_{}.yaml'.format(SCENE_NUM), yaml_list)
+
 
 
 
@@ -244,7 +267,7 @@ if __name__ == '__main__':
     rospy.init_node('robot')
 
     # TODO: Create Subscribers
-    plc_sub = rospy.Subscriber('pr2/world/points', pc2.PointCloud2, pcl_callback, queue_size=1)
+    pcl_sub = rospy.Subscriber('pr2/world/points', pc2.PointCloud2, pcl_callback, queue_size=1)
 
     # TODO: Create Publishers
     pcl_objects_pub = rospy.Publisher('pcl_objects_color_groups', pc2.PointCloud2, queue_size=1)
@@ -258,6 +281,7 @@ if __name__ == '__main__':
         rospy.Publisher('pcl_object_5', pc2.PointCloud2, queue_size=1),
         rospy.Publisher('pcl_object_6', pc2.PointCloud2, queue_size=1),
         rospy.Publisher('pcl_object_7', pc2.PointCloud2, queue_size=1),
+        rospy.Publisher('pcl_object_8', pc2.PointCloud2, queue_size=1),
     ]
 
     # TODO: Load Model From disk
