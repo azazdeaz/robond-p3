@@ -101,7 +101,6 @@ def pcl_callback(pcl_msg):
     cluster_indices = ec.Extract()
 
     # TODO: Create Cluster-Mask Point Cloud to visualize each cluster separately
-    print('c', len(cluster_indices))
     cluster_color = get_color_list(len(cluster_indices))
     color_cluster_point_list = []
     for j, indices in enumerate(cluster_indices):
@@ -168,7 +167,6 @@ def pcl_callback(pcl_msg):
     object_list_param = rospy.get_param('/object_list')
     dropbox_param = rospy.get_param('/dropbox')
     dropbox = dict(zip([box['group'] for box in dropbox_param], dropbox_param))
-    print('dropbox', dropbox    )
 
     labels = []
     centroids = []
@@ -178,7 +176,6 @@ def pcl_callback(pcl_msg):
         labels.append(do.label)
         points_arr = ros_to_pcl(do.cloud).to_array()
         centroids.append(np.mean(points_arr, axis=0)[:3].tolist())
-    print('object_list_param', object_list_param)
 
     for i, param in enumerate(object_list_param):
         test_scene_num = Int32()
